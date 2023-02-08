@@ -28,16 +28,16 @@ def get_data(cuts_dir):
     #cuts_train = cuts_train.filter (lambda s: s.duration >5)
     #cuts_train = cuts_train.subset(first=10000)
     shared_dir = Path("/export/c07/efrat/pipeline_hubert/pipeline_hubert/data/train_shared3")
-    shards = [str(path) for path in sorted(shared_dir.glob("shard_*-0.tar"))]
+    shards = [str(path) for path in sorted(shared_dir.glob("shard_0000000[12345]-0.tar"))]
     print(shards)
     cuts_train_webdataset = CutSet.from_webdataset(
         shards,
-        split_by_worker=True,
-        split_by_node=True,
-        shuffle_shards=True,
+        shuffle_shards=True
     )
+    
 
-    cuts_train_webdataset = cuts_train_webdataset.filter(lambda c: c.duration <40)
+    cuts_train_webdataset = cuts_train_webdataset.filter(lambda c: c.duration <25)
+    cuts_train_webdataset.describe()
     print ("finish create cut_Set")
     cuts_dev =CutSet.from_file(cuts_dir / f"cuts_dev_deleted_slash.jsonl.gz")
     cuts_dev = cuts_dev.filter(lambda c: c.duration <40)
