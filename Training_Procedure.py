@@ -42,7 +42,7 @@ def main():
 
 
     # Some LR stuff
-    min_lr = 1e-07
+    min_lr = 1e-04
     max_lr = 5e-05
     warmup = 4000 # In Hubert paper they use 8k, and 80k steps total
     freeze = 1000 # In Hubert paper they use 10k
@@ -65,14 +65,14 @@ def main():
     dev_dataset = ASRDataset(tokenizer)
     train_sampler = DynamicBucketingSampler(
         cuts_train_webdataset,
-        max_duration=40.0,
+        max_duration=25.0,
         shuffle=False,
         num_buckets=100,
     )
     print("finish tp create train sampler")
     dev_sampler = DynamicBucketingSampler(
         cuts_dev,
-        max_duration=40.0,
+        max_duration=25.0,
         shuffle=False,
     )
     train_iter_dataset = IterableDatasetWrapper(
@@ -123,11 +123,9 @@ def main():
     curr_lr = min_lr
     # Looping over epochs
     for e in range(num_epochs):
-        #num_batches = sum(1 for b in train_dloader.sampler)
-        num_batches = 0
+        num_batches = sum(1 for b in train_dloader.sampler)
         # Looping over minibatches within an epoch
         for batch_idx, b in enumerate(train_dloader):
-            num_batches+=1
             batch_size = b['input'].size(0)
             # Move the minibatch to CUDA
             b = ASRDataset.move_to(b, device)
@@ -160,7 +158,7 @@ def main():
 
            
             # Print some statistics occasionally
-            if batch_idx % 10 == 0:
+            if batch_idx % 50 == 0:
                 print(
                     'Iter: {:d}/{:d} Loss: {:.04f}'.format(
                         batch_idx, num_batches, loss.data.item()
