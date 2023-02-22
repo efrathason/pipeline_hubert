@@ -80,7 +80,7 @@ def compute_fbank_mgb2(manifest_dir, cuts_dir):
         KaldifeatFbankConfig(
             frame_opts=KaldifeatFrameOptions(sampling_rate=sampling_rate),
             mel_opts=KaldifeatMelOptions(num_bins=num_mel_bins),
-            device="cuda",
+        #    device="cuda",
         )
     )
 

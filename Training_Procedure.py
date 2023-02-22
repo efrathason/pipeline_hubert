@@ -20,14 +20,15 @@ import time
 
 
 def main():
+    main_dir = "/home/eorenst1/pipeline_hubert"
     print("get in main")
     # Some global variables
     download = True
     data = None # /path/to/
-    num_epochs = 3
+    num_epochs = 10
     print("create log dir")
     
-    log_dir = "/export/c07/efrat/pipeline_hubert/pipeline_hubert/log"
+    log_dir = main_dir + "/log"
     named_tuple = time.localtime() # get struct_time  
     name_dir = "log_"+time.strftime("%m.%d,%H:%M:%S", named_tuple)
     full_path = os.path.join(log_dir, name_dir)
@@ -35,7 +36,7 @@ def main():
     logger = Logger(full_path)
     logger.writer.flush()
 
-    checkpoint_dir = ""
+    checkpoint_dir = main_dir + "/checkpoint"
     specific_checkpoint_iter_dic = "cp_"+time.strftime("%m.%d,%H:%M:%S", named_tuple)
     cp_full_path = os.path.join(checkpoint_dir, specific_checkpoint_iter_dic)
     os.mkdir(cp_full_path)
@@ -49,38 +50,38 @@ def main():
     lr_slope = (max_lr - min_lr) / warmup # The schedule is slightly different in HUBERT
     
 
-    cuts_dir = '/export/c07/efrat/pipeline_hubert/pipeline_hubert/data/cuts' # /path/to/
+    cuts_dir = main_dir + '/data/cuts' # /path/to/
 
     print("get data function")
     # Get the data
-    cuts_train_webdataset, cuts_dev, cuts_test = get_data_function.get_data(cuts_dir)
+    cuts_train, cuts_dev, cuts_test = get_data_function.get_data(cuts_dir)
 
     print("create tokenizer")
     # Get the text tokenizer
-    tokenizer = TokenCollater(cuts_train_webdataset)
+    tokenizer = TokenCollater(cuts_train)
 
     # Define the dataset, samplers and data loaders.
     # These are responsible for batching the data during nnet training
     train_dataset = ASRDataset(tokenizer)
     dev_dataset = ASRDataset(tokenizer)
     train_sampler = DynamicBucketingSampler(
-        cuts_train_webdataset,
-        max_duration=25.0,
-        shuffle=False,
+        cuts_train,
+        max_duration=60.0,
+        shuffle=True,
         num_buckets=100,
     )
     print("finish tp create train sampler")
     dev_sampler = DynamicBucketingSampler(
         cuts_dev,
-        max_duration=25.0,
+        max_duration=60.0,
         shuffle=False,
     )
-    train_iter_dataset = IterableDatasetWrapper(
-    dataset=train_dataset,
-    sampler=train_sampler,
-    )
+    #train_iter_dataset = IterableDatasetWrapper(
+    #dataset=train_dataset,
+    #sampler=train_sampler,
+    #)
     train_dloader = torch.utils.data.DataLoader(
-        train_iter_dataset, batch_size=None, num_workers=0,   worker_init_fn=make_worker_init_fn(),
+    train_dataset, sampler=train_sampler, batch_size=None, num_workers=4,
     )
     print("finish to create train dloader")
     dev_dloader = torch.utils.data.DataLoader(

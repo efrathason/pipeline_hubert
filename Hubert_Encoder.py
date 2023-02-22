@@ -12,10 +12,11 @@ class SpeechEncoder(nn.Module):
 
         # Freeze the convolutional layers at the input. This is standard
         # practice.
-        #self.encoder.feature_extractor._freeze_parameters()
-        #self.encoder.freeze()
-        for param in self.encoder.parameters():
-            param.requires_grad = False
+        self.encoder.feature_extractor._freeze_parameters()
+
+        #if i want to freeze all the paprams:
+        #for param in self.encoder.parameters():
+        #    param.requires_grad = False
         
         # We need to map these representations to the number of output classes,
         # i.e., the number of bpe units, or characters we will use to model the text
