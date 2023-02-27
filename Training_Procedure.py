@@ -66,14 +66,14 @@ def main():
     dev_dataset = ASRDataset(tokenizer)
     train_sampler = DynamicBucketingSampler(
         cuts_train,
-        max_duration=60.0,
+        max_duration=240.0,
         shuffle=True,
         num_buckets=100,
     )
     print("finish tp create train sampler")
     dev_sampler = DynamicBucketingSampler(
         cuts_dev,
-        max_duration=60.0,
+        max_duration=240.0,
         shuffle=False,
     )
     #train_iter_dataset = IterableDatasetWrapper(
@@ -103,9 +103,13 @@ def main():
     loss_fn = CTCLoss()
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
+        
+        
     else:
         device = torch.device("cpu")
     print(device)
+    if torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
     model.to(device)
     loss_fn.to(device)
 
@@ -134,7 +138,8 @@ def main():
                 # Pass minibatch inputs through the encoder and output linear layer.
                 # Remember that iter_num is used internally to decide
                 # whether to freeze underlying encoder or not 
-                outputs = model(b, iter_num=iter_num)
+                #outputs = model(b, iter_num=iter_num)
+                outputs = model(**dict(mb = b, iter_num=iter_num))
                 loss = loss_fn(outputs, b['target'])
             # I don't think we need these, but in case something goes wrong, we are
             # just skipping these batches

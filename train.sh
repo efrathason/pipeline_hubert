@@ -3,8 +3,8 @@
 #SBATCH -A skhudan1_gpu
 #SBATCH --nodes=1
 #SBATCH -p a100
-#SBATCH --gres=gpu:2
-#SBATCH --ntasks-per-node=2
+#SBATCH --gres=gpu:4
+#SBATCH --ntasks-per-node=2 
 #SBATCH --cpus-per-task=6
 #SBATCH --partition=a100
 ###SBATCH --chdir=/home/eorenst1/pipeline_hubert
@@ -12,6 +12,8 @@
 ###SBATCH --mem=40G
 source /home/eorenst1/.conda/envs/pytorchlhotse/bin
 
+nvidia-smi
+echo $CUDA_VISIBLE_DEVICES
 python Training_Procedure.py
 
 deactivate

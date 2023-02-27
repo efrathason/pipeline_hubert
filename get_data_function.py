@@ -22,14 +22,13 @@ def save_data(manifest_dir, cuts_dir):
 
 def get_data(cuts_dir):
 
-
     cuts_dir = Path(cuts_dir)
     cuts_train = CutSet.from_file(cuts_dir / f"cuts_train.jsonl.gz")
     cuts_train = cuts_train.filter(lambda c: c.duration >1)
     cuts_train = cuts_train.filter(lambda c: c.duration <40)
     #cuts_train = cuts_train.filter (lambda s: s.duration <10)
     #cuts_train = cuts_train.filter (lambda s: s.duration >5)
-    cuts_train = cuts_train.subset(first=50000)
+    #cuts_train = cuts_train.subset(first=50000)
     #shared_dir = Path(main_dir + "/data/train_shared3")
     #shards = [str(path) for path in sorted(shared_dir.glob("shard_0000000[12345]-0.tar"))]
     #print(shards)
@@ -47,7 +46,7 @@ def get_data(cuts_dir):
     cuts_dev = cuts_dev.filter(lambda c: c.duration >1)
     #cuts_dev = cuts_dev.filter (lambda s: s.duration <10)
     #cuts_dev = cuts_dev.filter (lambda s: s.duration >5)
-    cuts_dev = cuts_dev.subset(first=2000)
+    #cuts_dev = cuts_dev.subset(first=2000)
     cuts_dev = cuts_dev.filter(lambda c: '\\' not in c.supervisions[0].text )
     cuts_dev = cuts_dev.filter(lambda c: 'I' not in c.supervisions[0].text )
     cuts_dev = cuts_dev.filter(lambda c: '@' not in c.supervisions[0].text )
@@ -79,3 +78,4 @@ def get_data(cuts_dir):
     #cuts_dev = cuts_dev.trim_to_supervisions(keep_overlapping=False)
     #cuts_test = cuts_test.trim_to_supervisions(keep_overlapping=False)
     return cuts_train, cuts_dev, cuts_test
+
