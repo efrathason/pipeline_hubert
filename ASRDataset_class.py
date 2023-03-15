@@ -25,6 +25,7 @@ class ASRDataset(torch.utils.data.Dataset):
             'lens': supervision_intervals,
             'text': [s.text for cut in cuts for s in cut.supervisions]
         }
+
     
     def move_to(b, device):
         return {

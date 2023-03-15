@@ -1,7 +1,8 @@
 
 import os
-
+import argparse
 from logger import Logger
+
 from lhotse.dataset.collation import TokenCollater
 from lhotse.dataset import DynamicBucketingSampler
 from lhotse.dataset import make_worker_init_fn
@@ -9,44 +10,91 @@ from lhotse.dataset.iterable_dataset import IterableDatasetWrapper
 import editdistance
 from CTC_loss_function import CTCLoss
 from ASRDataset_class import ASRDataset
-from Hubert_Encoder import SpeechEncoder
+from Hubert_Encoder import LSTMEncoder
+from Conformer_Encoder import SpeechEncoder
 import get_data_function
-from checkpoint_functions import save_checkpoint
+from checkpoint_functions import save_checkpoint, load_checkpoint
 import torch
 import torch.nn as nn
 
 import numpy
 import time
 
+def get_parser():
+    parser = argparse.ArgumentParser(
+        formatter_class=argparse.ArgumentDefaultsHelpFormatter
+    )
+
+    parser.add_argument(
+        "--main-dir",
+        type=str,
+        default="/home/eorenst1/pipeline_hubert",
+        help="main directory of the process",
+    )
+    parser.add_argument(
+        "--running-name",
+        type=str,
+        default="basic_running",
+        help="name of specific runnig, the logs and the checkpint will save by this name",
+    )
+    parser.add_argument(
+        "--num-epochs",
+        type=int,
+        default=10,
+        help="how many epochs will train",
+    )
+    parser.add_argument(
+        "--first-epoch",
+        type=int,
+        default=0,
+        help="how many epochs will train",
+    )
+    parser.add_argument(
+        "--max-duration",
+        type=float,
+        default=140.0,
+        help="for 2 gpu. if there is OOM, reduce this number",
+    )
+    parser.add_argument(
+        "--model",
+        type=str,
+        default="lstm",
+        help="the erchitecure of the model",
+    )
+    return parser
 
 def main():
-    main_dir = "/home/eorenst1/pipeline_hubert"
-    print("get in main")
+    parser = get_parser()
+    args = parser.parse_args()
+    name_of_running = args.running_name
+    main_dir = args.main_dir
+    print(f"start {name_of_running} pipline")
     # Some global variables
     download = True
     data = None # /path/to/
-    num_epochs = 10
-    print("create log dir")
+    num_epochs = args.num_epochs
+    first_epoch = args.first_epoch
     
     log_dir = main_dir + "/log"
-    named_tuple = time.localtime() # get struct_time  
-    name_dir = "log_"+time.strftime("%m.%d,%H:%M:%S", named_tuple)
-    full_path = os.path.join(log_dir, name_dir)
-    os.mkdir(full_path)
-    logger = Logger(full_path)
+    name_dir = "log_"+name_of_running
+    log_full_path = os.path.join(log_dir, name_dir)
+    if(not os.path.isdir(log_full_path)):
+        os.mkdir(log_full_path)
+    logger = Logger(log_full_path)
     logger.writer.flush()
 
     checkpoint_dir = main_dir + "/checkpoint"
-    specific_checkpoint_iter_dic = "cp_"+time.strftime("%m.%d,%H:%M:%S", named_tuple)
+    specific_checkpoint_iter_dic = "cp_"+name_of_running
     cp_full_path = os.path.join(checkpoint_dir, specific_checkpoint_iter_dic)
-    os.mkdir(cp_full_path)
+    if(not os.path.isdir(cp_full_path)):
+        os.mkdir(cp_full_path)
 
 
     # Some LR stuff
-    min_lr = 1e-04
-    max_lr = 5e-05
-    warmup = 4000 # In Hubert paper they use 8k, and 80k steps total
-    freeze = 1000 # In Hubert paper they use 10k
+    min_lr = 1e-07
+    max_lr = 1e-05
+    warmup = 8000 # In Hubert paper they use 8k, and 80k steps total
+    freeze = 10000 # In Hubert paper they use 10k
     lr_slope = (max_lr - min_lr) / warmup # The schedule is slightly different in HUBERT
     
 
@@ -55,8 +103,7 @@ def main():
     print("get data function")
     # Get the data
     cuts_train, cuts_dev, cuts_test = get_data_function.get_data(cuts_dir)
-
-    print("create tokenizer")
+    cuts_train.describe()
     # Get the text tokenizer
     tokenizer = TokenCollater(cuts_train)
 
@@ -66,14 +113,13 @@ def main():
     dev_dataset = ASRDataset(tokenizer)
     train_sampler = DynamicBucketingSampler(
         cuts_train,
-        max_duration=240.0,
+        max_duration=args.max_duration,
         shuffle=True,
         num_buckets=100,
     )
-    print("finish tp create train sampler")
     dev_sampler = DynamicBucketingSampler(
         cuts_dev,
-        max_duration=240.0,
+        max_duration=args.max_duration,
         shuffle=False,
     )
     #train_iter_dataset = IterableDatasetWrapper(
@@ -83,7 +129,6 @@ def main():
     train_dloader = torch.utils.data.DataLoader(
     train_dataset, sampler=train_sampler, batch_size=None, num_workers=4,
     )
-    print("finish to create train dloader")
     dev_dloader = torch.utils.data.DataLoader(
         dev_dataset, sampler=dev_sampler, batch_size=None, num_workers=4
     )
@@ -93,7 +138,10 @@ def main():
     print('the first item: {}', list(cuts_dev.data.items())[0])
 
     # Create the model
-    model = SpeechEncoder(len(tokenizer.idx2token), freeze_updates=freeze)
+    if(args.model=='lstm'):
+        model = LSTMEncoder(len(tokenizer.idx2token), freeze_updates=freeze)
+    if(args.model=='conformer'):
+        model = SpeechEncoder(len(tokenizer.idx2token), freeze_updates=freeze)
 
     #print the count of trainig params:
     print ( "the count of training params:") 
@@ -101,18 +149,6 @@ def main():
     
     # Create the loss function
     loss_fn = CTCLoss()
-    if torch.cuda.is_available():
-        device = torch.device("cuda:0")
-        
-        
-    else:
-        device = torch.device("cpu")
-    print(device)
-    if torch.cuda.device_count() > 1:
-        model = nn.DataParallel(model)
-    model.to(device)
-    loss_fn.to(device)
-
     # Create the optimizer
     # Normally we would warmup the learning rate and then decay it, but for
     # simplicity we are just using a small fixed rate
@@ -122,12 +158,35 @@ def main():
         weight_decay=1e-06,
     )
 
+    if torch.cuda.is_available():
+        device = torch.device("cuda:0")
+        
+    else:
+        device = torch.device("cpu")
+    print(device)
+    if torch.cuda.device_count() > 1:
+        model = nn.DataParallel(model)
+        #optim = nn.DataParallel(optim)
+        
+    model.to(device)
+    loss_fn.to(device)
+
+    
+    if first_epoch>0:
+        path_checkpoint = os.path.join(cp_full_path, f"checkpoint_{first_epoch-1}.pt")
+        checkpoint = load_checkpoint(path_checkpoint)
+        #model.load_state_dict(checkpoint['model_state_dict'])
+        model.load_state_dict(torch.load(path_checkpoint), strict=False)
+        optim.load_state_dict(checkpoint['optimizer_state_dict'])
+        first_epoch = checkpoint['epoch']
+        print ("first epoch from the checkpoint: " + str(first_epoch))
+        loss = checkpoint['loss']
 
     scaler = torch.cuda.amp.GradScaler()
     iter_num = 0
     curr_lr = min_lr
     # Looping over epochs
-    for e in range(num_epochs):
+    for e in range(first_epoch, num_epochs):
         num_batches = sum(1 for b in train_dloader.sampler)
         # Looping over minibatches within an epoch
         for batch_idx, b in enumerate(train_dloader):
@@ -174,8 +233,8 @@ def main():
             iter_num += 1
             
             # Update the learning rate
-            #curr_lr = curr_lr + lr_slope if iter_num <= warmup else curr_lr - lr_slope
-            curr_lr = min_lr
+            curr_lr = curr_lr + lr_slope if iter_num <= warmup else curr_lr - lr_slope
+            #curr_lr = min_lr
             for param_group in optim.param_groups:
                 param_group['lr'] = curr_lr
             # ============ TensorBoard logging ============#
@@ -198,7 +257,7 @@ def main():
         with torch.no_grad(), torch.cuda.amp.autocast():
             print ("get in to with")
             for batch_idx, b in enumerate(dev_dloader):
-                if (batch_idx%10 ==0):
+                if (batch_idx%50 ==0):
                     print ("batch num: " + str(batch_idx))
                 b = ASRDataset.move_to(b, device)
                 outputs = model(b)
@@ -232,7 +291,7 @@ def main():
 
             for tag, value in info.items():
                 logger.scalar_summary(tag, value, iter_num)
-        save_checkpoint(e, model, optim, loss, cp_full_path)
+        save_checkpoint(e, model, optim, loss_val, cp_full_path)
         print ("end epoch - after with")
 
 

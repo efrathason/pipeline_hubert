@@ -28,7 +28,9 @@ def get_data(cuts_dir):
     cuts_train = cuts_train.filter(lambda c: c.duration <40)
     #cuts_train = cuts_train.filter (lambda s: s.duration <10)
     #cuts_train = cuts_train.filter (lambda s: s.duration >5)
-    #cuts_train = cuts_train.subset(first=50000)
+    cuts_train = cuts_train.subset(first=100000)
+    #cuts_train = cuts_train.subset(first=10000)
+
     #shared_dir = Path(main_dir + "/data/train_shared3")
     #shards = [str(path) for path in sorted(shared_dir.glob("shard_0000000[12345]-0.tar"))]
     #print(shards)
@@ -46,7 +48,7 @@ def get_data(cuts_dir):
     cuts_dev = cuts_dev.filter(lambda c: c.duration >1)
     #cuts_dev = cuts_dev.filter (lambda s: s.duration <10)
     #cuts_dev = cuts_dev.filter (lambda s: s.duration >5)
-    #cuts_dev = cuts_dev.subset(first=2000)
+    #cuts_dev = cuts_dev.subset(first=100)
     cuts_dev = cuts_dev.filter(lambda c: '\\' not in c.supervisions[0].text )
     cuts_dev = cuts_dev.filter(lambda c: 'I' not in c.supervisions[0].text )
     cuts_dev = cuts_dev.filter(lambda c: '@' not in c.supervisions[0].text )
@@ -70,7 +72,7 @@ def get_data(cuts_dir):
     cuts_test = cuts_test.filter(lambda c: c.duration <40)
     #cuts_test = cuts_test.filter (lambda s: s.duration <10)
     #cuts_test = cuts_test.filter (lambda s: s.duration >5)
-    cuts_test = cuts_test.subset(first=50)
+    #cuts_test = cuts_test.subset(first=50)
     # We only want a single transcript, known as a supervision in lhotse, for
     # underlying "cut" of audio
 
