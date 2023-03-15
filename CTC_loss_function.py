@@ -13,7 +13,6 @@ class CTCLoss(nn.Module):
         pad_mask = (targets != 0)
         targets_flat = targets.masked_select(pad_mask)
         target_lengths = pad_mask.sum(-1)
-
         with torch.backends.cudnn.flags(enabled=False):
             loss = F.ctc_loss(
                 lprobs,
