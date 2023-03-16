@@ -15,8 +15,8 @@ source /home/eorenst1/.conda/envs/pytorchlhotse/bin
 nvidia-smi
 echo $CUDA_VISIBLE_DEVICES
 python Training_Procedure.py \
---running-name full_data_minlr_7_maxlr_5_wu_8000_freeze_feature_2layer_lstm \
---model lstm \
+--running-name full_data_minlr_7_maxlr_5_wu_80000_freeze_feature_conformer_2gpu \
+--model conformer \
 --max-duration 120
 
 deactivate

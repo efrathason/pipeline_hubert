@@ -93,7 +93,7 @@ def main():
     # Some LR stuff
     min_lr = 1e-07
     max_lr = 1e-05
-    warmup = 8000 # In Hubert paper they use 8k, and 80k steps total
+    warmup = 80000 # In Hubert paper they use 8k, and 80k steps total
     freeze = 10000 # In Hubert paper they use 10k
     lr_slope = (max_lr - min_lr) / warmup # The schedule is slightly different in HUBERT
     
@@ -170,7 +170,7 @@ def main():
         
     model.to(device)
     loss_fn.to(device)
-
+    
     
     if first_epoch>0:
         path_checkpoint = os.path.join(cp_full_path, f"checkpoint_{first_epoch-1}.pt")

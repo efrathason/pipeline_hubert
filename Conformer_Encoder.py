@@ -28,16 +28,16 @@ class SpeechEncoder(nn.Module):
         #self.lstm = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size,num_layers=self.num_layers, batch_first=True)
 
         #conformer block:
-        #self.conformer = Conformer(input_dim =self.input_size , num_heads = 4, ffn_dim = 128, num_layers = 4, depthwise_conv_kernel_size = 31)
-
+        self.conformer = Conformer(input_dim =self.input_size , num_heads = 4, ffn_dim = 128, num_layers = 4, depthwise_conv_kernel_size = 31)
+        #self.conformer.to(torch.device("cuda:0"))
 
 
         # We need to map these representations to the number of output classes,
         # i.e., the number of bpe units, or characters we will use to model the text
-        #self.linear = nn.Linear(self.input_size, num_classes)
+        self.linear = nn.Linear(self.input_size, num_classes)
         #print("num class:")
         #print(num_classes)
-        self.linear = nn.Linear(self._get_output_dim(), num_classes)
+        #self.linear = nn.Linear(self._get_output_dim(), num_classes)
 
         # The number of updates to freeze the encoder
         self.freeze_updates = freeze_updates
@@ -74,10 +74,9 @@ class SpeechEncoder(nn.Module):
         #c_0 = Variable(torch.zeros(self.num_layers, x[0].size(0), self.hidden_size).cuda())
         #output, (final_hidden_state, final_cell_state) = self.lstm(x[0], (h_0, c_0))
         
-        #output, length = self.conformer(x[0], self._get_output_dim())
-        #y = self.linear(output)
+       
         #y = self.linear(output[-1])
-        y = self.linear(x[0])
+        #y = self.linear(x[0])
         # These values are hardcoded for now. They are the widths and strides of
         # the convolutional layers in the "feature extractor". These are the
         # convolutional layers discussed that are responsible for downsampling
@@ -86,4 +85,7 @@ class SpeechEncoder(nn.Module):
         for width, stride in [(10, 5), (3, 2), (3, 2), (3, 2), (3, 2), (2, 2), (2, 2)]:
             # This is the formula for the length of the next layer
             input_lens = torch.floor((input_lens - width) / stride + 1).int()
-        return y, input_lens
+        
+        output, length = self.conformer(x[0], input_lens)
+        y = self.linear(output)
+        return y, length
