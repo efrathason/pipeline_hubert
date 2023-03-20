@@ -12,9 +12,10 @@ from CTC_loss_function import CTCLoss
 from ASRDataset_class import ASRDataset
 from Hubert_Encoder import LSTMEncoder
 from Conformer_Encoder import SpeechEncoder
-import get_data_function
+from get_data_function import get_dloader, get_data
 from checkpoint_functions import save_checkpoint, load_checkpoint
 import torch
+import torch.optim as opt
 import torch.nn as nn
 
 import numpy
@@ -61,6 +62,18 @@ def get_parser():
         default="lstm",
         help="the erchitecure of the model",
     )
+    parser.add_argument(
+        "--world-size",
+        type=int,
+        default=1,
+        help="Number of GPUs for DDP training.",
+    )
+    parser.add_argument(
+        "--master-port",
+        type=int,
+        default=12354,
+        help="Master port to use for DDP training.",
+    )
     return parser
 
 def main():
@@ -91,47 +104,27 @@ def main():
 
 
     # Some LR stuff
-    min_lr = 1e-07
-    max_lr = 1e-05
-    warmup = 80000 # In Hubert paper they use 8k, and 80k steps total
+    #min_lr = 1e-07
+    #max_lr = 1e-05
+    #warmup = 80000 # In Hubert paper they use 8k, and 80k steps total
     freeze = 10000 # In Hubert paper they use 10k
-    lr_slope = (max_lr - min_lr) / warmup # The schedule is slightly different in HUBERT
+    #lr_slope = (max_lr - min_lr) / warmup # The schedule is slightly different in HUBERT
     
 
     cuts_dir = main_dir + '/data/cuts' # /path/to/
 
     print("get data function")
     # Get the data
-    cuts_train, cuts_dev, cuts_test = get_data_function.get_data(cuts_dir)
+
+    
+    cuts_train, cuts_dev, cuts_test = get_data(cuts_dir)
     cuts_train.describe()
     # Get the text tokenizer
     tokenizer = TokenCollater(cuts_train)
-
-    # Define the dataset, samplers and data loaders.
-    # These are responsible for batching the data during nnet training
-    train_dataset = ASRDataset(tokenizer)
-    dev_dataset = ASRDataset(tokenizer)
-    train_sampler = DynamicBucketingSampler(
-        cuts_train,
-        max_duration=args.max_duration,
-        shuffle=True,
-        num_buckets=100,
-    )
-    dev_sampler = DynamicBucketingSampler(
-        cuts_dev,
-        max_duration=args.max_duration,
-        shuffle=False,
-    )
-    #train_iter_dataset = IterableDatasetWrapper(
-    #dataset=train_dataset,
-    #sampler=train_sampler,
-    #)
-    train_dloader = torch.utils.data.DataLoader(
-    train_dataset, sampler=train_sampler, batch_size=None, num_workers=4,
-    )
-    dev_dloader = torch.utils.data.DataLoader(
-        dev_dataset, sampler=dev_sampler, batch_size=None, num_workers=4
-    )
+    
+    train_dloader = get_dloader(cuts_train, tokenizer, args.max_duration)
+    dev_dloader = get_dloader(cuts_dev, tokenizer, args.max_duration)
+    
     print ("dev information")
     count_data = len(list(cuts_dev.data.items()))
     print (count_data)
@@ -154,13 +147,14 @@ def main():
     # simplicity we are just using a small fixed rate
     optim = torch.optim.Adam(
         list(filter(lambda p: p.requires_grad, model.parameters())),
-        lr=min_lr,
         weight_decay=1e-06,
     )
 
+    steps = 80000
+    scheduler = opt.lr_scheduler.CosineAnnealingLR(optim, steps)
+
     if torch.cuda.is_available():
         device = torch.device("cuda:0")
-        
     else:
         device = torch.device("cpu")
     print(device)
@@ -179,12 +173,15 @@ def main():
         model.load_state_dict(torch.load(path_checkpoint), strict=False)
         optim.load_state_dict(checkpoint['optimizer_state_dict'])
         first_epoch = checkpoint['epoch']
+        scheduler = checkpoint['scheduler']
         print ("first epoch from the checkpoint: " + str(first_epoch))
         loss = checkpoint['loss']
 
     scaler = torch.cuda.amp.GradScaler()
     iter_num = 0
-    curr_lr = min_lr
+    curr_lr = scheduler.get_last_lr()[0]
+    
+    
     # Looping over epochs
     for e in range(first_epoch, num_epochs):
         num_batches = sum(1 for b in train_dloader.sampler)
@@ -233,7 +230,8 @@ def main():
             iter_num += 1
             
             # Update the learning rate
-            curr_lr = curr_lr + lr_slope if iter_num <= warmup else curr_lr - lr_slope
+            scheduler.step()
+            curr_lr = scheduler.get_last_lr()[0]
             #curr_lr = min_lr
             for param_group in optim.param_groups:
                 param_group['lr'] = curr_lr
@@ -291,7 +289,7 @@ def main():
 
             for tag, value in info.items():
                 logger.scalar_summary(tag, value, iter_num)
-        save_checkpoint(e, model, optim, loss_val, cp_full_path)
+        save_checkpoint(e, model, optim, loss_val, scheduler, cp_full_path)
         print ("end epoch - after with")
 
 

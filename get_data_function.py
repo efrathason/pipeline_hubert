@@ -3,6 +3,9 @@ from pathlib import Path
 from lhotse import CutSet
 from lhotse.recipes import prepare_mgb2
 from mgb2_utils.compute_fbank_mgb2 import compute_fbank_mgb2
+from ASRDataset_class import ASRDataset
+from lhotse.dataset import DynamicBucketingSampler
+import torch
 
 main_dir = "/home/eorenst1/pipeline_hubert"
 # This function is going to get the MGBG2
@@ -81,3 +84,19 @@ def get_data(cuts_dir):
     #cuts_test = cuts_test.trim_to_supervisions(keep_overlapping=False)
     return cuts_train, cuts_dev, cuts_test
 
+def get_dloader(cuts, tokenizer, max_duration ):
+    # Define the dataset, samplers and data loaders.
+    # These are responsible for batching the data during nnet training
+    dataset = ASRDataset(tokenizer)
+    sampler = DynamicBucketingSampler(
+        cuts,
+        max_duration=max_duration,
+        shuffle=True,
+        num_buckets=100,
+    )
+    
+    dloader = torch.utils.data.DataLoader(
+        dataset, sampler=sampler, batch_size=None, num_workers=4,
+    )
+    
+    return dloader
