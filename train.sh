@@ -8,16 +8,19 @@
 #SBATCH --cpus-per-task=6
 #SBATCH --partition=a100
 ###SBATCH --chdir=/home/eorenst1/pipeline_hubert
-#SBATCH --time=24:0:0
+#SBATCH --time=48:0:0
 ###SBATCH --mem=40G
 source /home/eorenst1/.conda/envs/pytorchlhotse/bin
 
 nvidia-smi
 echo $CUDA_VISIBLE_DEVICES
 python Training_Procedure.py \
---running-name some_changes \
+--running-name 4_layer_lstm_new4_cos_lr_80000steps \
 --model lstm \
---max-duration 120
+--world-size 2 \
+--max-duration 100 \
+--num-layers 4 \
+--num-epochs 30
 
 deactivate
 #### execute code and write output file to OUT-24log.

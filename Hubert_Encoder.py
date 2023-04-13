@@ -1,11 +1,10 @@
 from transformers import HubertModel
 import torch.nn as nn
 import torch
-
 from torch.autograd import Variable 
 
 class LSTMEncoder(nn.Module):
-    def __init__(self, num_classes, freeze_updates=1000):
+    def __init__(self, num_classes, freeze_updates=1000, lstm_layers=2):
         super(LSTMEncoder, self).__init__()
 
         # We need an encoder to get representations
@@ -23,7 +22,7 @@ class LSTMEncoder(nn.Module):
         #lstm layer:
         self.input_size = self._get_output_dim()
         self.hidden_size = 2000
-        self.num_layers = 2
+        self.num_layers = lstm_layers
         self.lstm = nn.LSTM(input_size=self.input_size, hidden_size=self.hidden_size,num_layers=self.num_layers, batch_first=True)
 
 

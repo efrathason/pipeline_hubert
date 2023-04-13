@@ -69,6 +69,12 @@ def get_parser():
         help="Number of GPUs for DDP training.",
     )
     parser.add_argument(
+        "--num-layers",
+        type=int,
+        default=2,
+        help="Number of lstm layers.",
+    )
+    parser.add_argument(
         "--master-port",
         type=int,
         default=12354,
@@ -109,7 +115,7 @@ def main():
     #warmup = 80000 # In Hubert paper they use 8k, and 80k steps total
     freeze = 10000 # In Hubert paper they use 10k
     #lr_slope = (max_lr - min_lr) / warmup # The schedule is slightly different in HUBERT
-    
+    const_lr=1e-06
 
     cuts_dir = main_dir + '/data/cuts' # /path/to/
 
@@ -132,7 +138,7 @@ def main():
 
     # Create the model
     if(args.model=='lstm'):
-        model = LSTMEncoder(len(tokenizer.idx2token), freeze_updates=freeze)
+        model = LSTMEncoder(len(tokenizer.idx2token), freeze_updates=freeze, lstm_layers=args.num_layers)
     if(args.model=='conformer'):
         model = SpeechEncoder(len(tokenizer.idx2token), freeze_updates=freeze)
 
@@ -146,8 +152,8 @@ def main():
     # Normally we would warmup the learning rate and then decay it, but for
     # simplicity we are just using a small fixed rate
     optim = torch.optim.Adam(
-        list(filter(lambda p: p.requires_grad, model.parameters())),
-        weight_decay=1e-06,
+        list(filter(lambda p: p.requires_grad, model.parameters())), lr=1e-5,
+        betas=(0.9, 0.98), eps=1e-09, weight_decay=1e-06,
     )
 
     steps = 80000
@@ -180,7 +186,7 @@ def main():
     scaler = torch.cuda.amp.GradScaler()
     iter_num = 0
     curr_lr = scheduler.get_last_lr()[0]
-    
+    #curr_lr = const_lr
     
     # Looping over epochs
     for e in range(first_epoch, num_epochs):
@@ -232,7 +238,7 @@ def main():
             # Update the learning rate
             scheduler.step()
             curr_lr = scheduler.get_last_lr()[0]
-            #curr_lr = min_lr
+            #curr_lr = const_lr
             for param_group in optim.param_groups:
                 param_group['lr'] = curr_lr
             # ============ TensorBoard logging ============#
