@@ -15,11 +15,11 @@ source /home/eorenst1/.conda/envs/pytorchlhotse/bin
 nvidia-smi
 echo $CUDA_VISIBLE_DEVICES
 python Training_Procedure.py \
---running-name 4_layer_lstm_new4_cos_lr_80000steps \
+--running-name 1_layer_lstm_cos_lr_160000steps \
 --model lstm \
 --world-size 2 \
 --max-duration 100 \
---num-layers 4 \
+--num-layers 1 \
 --num-epochs 30
 
 deactivate

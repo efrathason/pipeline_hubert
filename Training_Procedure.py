@@ -156,7 +156,7 @@ def main():
         betas=(0.9, 0.98), eps=1e-09, weight_decay=1e-06,
     )
 
-    steps = 80000
+    steps = 160000
     scheduler = opt.lr_scheduler.CosineAnnealingLR(optim, steps)
 
     if torch.cuda.is_available():
@@ -291,6 +291,7 @@ def main():
             # (1) Log the scalar values
             info = {
                 'train/loss_val': loss_val.detach().cpu(),
+                'train/wer_val': 100.0 * errors / num_ref
             }
 
             for tag, value in info.items():
